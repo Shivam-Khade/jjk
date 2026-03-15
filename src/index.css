@@ -1,0 +1,653 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════
+   SUKUNA — GLOBAL STYLES
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --color-cursed-red: #ff2200;
+  --color-cursed-orange: #ff6600;
+  --color-cursed-crimson: #ff3300;
+  --color-bg-dark: #000000;
+  --color-bg-darker: #000000;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a0a0;
+  --font-heading: 'Syne', sans-serif;
+  --font-body: 'Manrope', sans-serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+section {
+  scroll-margin-top: 72px;
+}
+
+/* Stacked / Overlapping Sections:
+   Each panel sticks to the top while the next one scrolls
+   up and covers it (z-index set inline per panel). */
+
+.stacked-panel {
+  position: sticky;
+  top: 0;
+}
+
+/* Ensure #root doesn't break sticky positioning */
+#root {
+  overflow: visible;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-bg-dark);
+  color: var(--color-text-primary);
+  overflow-x: clip;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+p, span, a, li {
+  font-family: var(--font-body);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-dark);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 34, 0, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 34, 0, 0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NAVBAR STYLES
+   ═══════════════════════════════════════════════════════════ */
+
+.sukuna-logo {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.75rem;
+  letter-spacing: 0.08em;
+  color: var(--color-text-primary);
+  text-shadow: 
+    0 0 10px rgba(255, 34, 0, 0.5),
+    0 0 30px rgba(255, 34, 0, 0.2),
+    0 0 60px rgba(255, 34, 0, 0.1);
+  text-transform: uppercase;
+  user-select: none;
+  cursor: default;
+}
+
+/* Hamburger Lines */
+.hamburger-line {
+  width: 32px;
+  height: 2px;
+  background-color: var(--color-text-primary);
+  border-radius: 2px;
+  transition: background-color 0.3s ease;
+  transform-origin: center center;
+}
+
+.hamburger-btn:hover .hamburger-line {
+  background-color: var(--color-cursed-crimson);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MENU OVERLAY
+   ═══════════════════════════════════════════════════════════ */
+
+.menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+.menu-overlay.active {
+  pointer-events: all;
+  visibility: visible;
+}
+
+.menu-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 8, 8, 0.6);
+  z-index: 0;
+}
+
+.menu-panel {
+  position: relative;
+  z-index: 1;
+  width: 85vw;
+  max-width: 560px;
+  min-height: 380px;
+  padding: 48px 40px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(255, 60, 0, 0.25);
+  border-top: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-left: 1.5px solid rgba(255, 255, 255, 0.06);
+  background: rgba(10, 10, 10, 0.55);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow:
+    0 0 20px rgba(255, 34, 0, 0.2),
+    0 0 10px rgba(255, 60, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transform: scale(0.92);
+  opacity: 0;
+}
+
+/* Radial glow behind menu panel */
+.menu-overlay::before {
+  content: '';
+  position: absolute;
+  width: 800px;
+  height: 800px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 34, 0, 0.12) 0%, rgba(200, 20, 0, 0.05) 40%, transparent 70%);
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MENU LINKS
+   ═══════════════════════════════════════════════════════════ */
+
+.menu-link {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+  position: relative;
+  cursor: pointer;
+  padding: 6px 16px;
+  transition: letter-spacing 0.3s ease;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.menu-link::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: var(--color-cursed-crimson);
+  transform: scaleX(0);
+  transform-origin: left center;
+  border-radius: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CLOSE BUTTON
+   ═══════════════════════════════════════════════════════════ */
+
+.close-button {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  opacity: 0;
+}
+
+.close-button:hover {
+  border-color: var(--color-cursed-crimson);
+  background: rgba(255, 34, 0, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DARK VEIL (behind menu on open)
+   ═══════════════════════════════════════════════════════════ */
+
+.dark-veil {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO SECTION
+   ═══════════════════════════════════════════════════════════ */
+
+.hero-section {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: calc(100vh - 72px);
+  margin-top: 72px;
+  overflow: hidden;
+  background: var(--color-bg-dark);
+  cursor: none;
+}
+
+/* ── Image layers ── */
+
+.hero-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.hero-img--sukuna {
+  z-index: 1;
+}
+
+.hero-img--yuji {
+  z-index: 0;
+  /* inside the yuji group, stacks naturally */
+}
+
+/* Sukuna dark overlay */
+.hero-overlay--sukuna {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 2;
+}
+
+/* Yuji group — mask-image applied here by GSAP for foggy reveal */
+.hero-yuji-group {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  mask-image: radial-gradient(circle 0px at 50% 50%, transparent 0%, transparent 30%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 75%, black 100%);
+  -webkit-mask-image: radial-gradient(circle 0px at 50% 50%, transparent 0%, transparent 30%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.5) 60%, rgba(0,0,0,0.85) 75%, black 100%);
+}
+
+/* Yuji gradient overlay */
+.hero-overlay--yuji {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.2) 30%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+  z-index: 1;
+}
+
+/* Bottom fade — above images, below text */
+.hero-bottom-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  background: linear-gradient(to bottom, transparent, #000000);
+  z-index: 4;
+  pointer-events: none;
+}
+
+/* ── Foggy Cursor Glow ── */
+
+@keyframes gaseous-morph {
+  0% {
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  }
+  34% {
+    border-radius: 70% 30% 50% 50% / 30% 30% 70% 70%;
+    transform: translate(-50%, -50%) rotate(120deg) scale(1.05);
+  }
+  67% {
+    border-radius: 100% 60% 60% 100% / 100% 100% 60% 60%;
+    transform: translate(-50%, -50%) rotate(240deg) scale(0.95);
+  }
+  100% {
+    border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+    transform: translate(-50%, -50%) rotate(360deg) scale(1);
+  }
+}
+
+.hero-cursor-ring {
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(
+    circle, 
+    rgba(255, 34, 0, 0.45) 0%, 
+    rgba(255, 80, 0, 0.15) 35%, 
+    transparent 70%
+  );
+  filter: blur(16px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 6;
+  opacity: 0;
+  animation: gaseous-morph 8s linear infinite;
+  will-change: transform, left, top, border-radius;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO TEXT
+   ═══════════════════════════════════════════════════════════ */
+
+.hero-text-block {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 5rem;
+}
+
+/* Eyebrow label */
+.hero-eyebrow {
+  font-family: var(--font-body);
+  font-size: 11px;
+  letter-spacing: 0.35em;
+  color: rgba(255, 34, 0, 0.85);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+/* Main heading */
+.hero-line {
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: clamp(5rem, 11vw, 10rem);
+  color: #ffffff;
+  line-height: 0.88;
+  text-shadow: 0 0 120px rgba(255, 34, 0, 0.2);
+  letter-spacing: -0.02em;
+  display: block;
+}
+
+.hero-line--indent {
+  padding-left: 0.55em;
+}
+
+/* Crimson divider */
+.hero-divider {
+  width: 64px;
+  height: 1.5px;
+  background: var(--color-cursed-red);
+  margin: 28px 0;
+  transform-origin: left;
+}
+
+/* Body paragraph */
+.hero-body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: #606060;
+  line-height: 1.75;
+  max-width: 380px;
+  margin-bottom: 28px;
+}
+
+/* Meta row */
+.hero-meta {
+  font-family: var(--font-body);
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.25);
+  text-transform: uppercase;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.hero-meta-dot {
+  color: rgba(255, 34, 0, 0.5);
+}
+
+/* ── Hero responsive ── */
+
+@media (max-width: 768px) {
+  .hero-text-block {
+    padding: 2rem 1.5rem 3rem;
+  }
+
+  .hero-line {
+    font-size: clamp(3rem, 14vw, 5rem);
+  }
+
+  .hero-body {
+    font-size: 13px;
+    max-width: 100%;
+  }
+
+  .hero-cursor-ring {
+    display: none;
+  }
+
+  .hero-section {
+    cursor: default;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SLASH LOADER
+   ═══════════════════════════════════════════════════════════ */
+
+.slash-loader-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  overflow: hidden;
+  background: #000000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.slash-loader-bg-glow {
+  position: absolute;
+  inset: -10%;
+  background: radial-gradient(
+    circle at center,
+    rgba(120, 10, 0, 0.25) 0%,
+    rgba(20, 0, 0, 0.1) 40%,
+    #000000 75%
+  );
+  opacity: 0;
+  z-index: 1;
+}
+
+/* Cursed Aura background */
+.loader-aura {
+  position: absolute;
+  width: 150vmax;
+  height: 150vmax;
+  background: radial-gradient(
+    circle,
+    rgba(255, 34, 0, 0.08) 0%,
+    rgba(150, 20, 0, 0.03) 30%,
+    transparent 60%
+  );
+  filter: blur(60px);
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Panels */
+.slash-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: #000000;
+}
+
+.slash-panel-1 { clip-path: polygon(0% 0%, 100% 0%, 100% 15%, 0% 25%); }
+.slash-panel-2 { clip-path: polygon(0% 25%, 100% 15%, 100% 35%, 0% 40%); }
+.slash-panel-3 { clip-path: polygon(0% 40%, 100% 35%, 100% 50%, 0% 60%); }
+.slash-panel-4 { clip-path: polygon(0% 60%, 100% 50%, 100% 70%, 0% 80%); }
+.slash-panel-5 { clip-path: polygon(0% 80%, 100% 70%, 100% 85%, 0% 95%); }
+.slash-panel-6 { clip-path: polygon(0% 95%, 100% 85%, 100% 100%, 0% 100%); }
+
+.slash-sigil {
+  position: relative;
+  z-index: 15;
+  filter: drop-shadow(0 0 30px rgba(255, 34, 0, 0.6));
+  pointer-events: none;
+}
+
+.slash-lines-svg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slash-flash {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Loading Bar & UI */
+.slash-bar-wrapper {
+  position: absolute;
+  bottom: clamp(60px, 10vh, 100px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(400px, 85vw);
+  z-index: 18;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.loader-status-text {
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  color: rgba(255, 255, 255, 0.8);
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(255, 34, 0, 0.5);
+}
+
+.slash-bar-track {
+  width: 100%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.slash-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(to right, #660000, #ff2200, #ff6600);
+  box-shadow: 0 0 15px rgba(255, 34, 0, 0.6);
+  position: relative;
+}
+
+.bar-glow-tip {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 100%;
+  background: white;
+  filter: blur(4px);
+  box-shadow: 0 0 10px white;
+}
+
+.loader-bottom-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.loader-meta-label {
+  font-family: var(--font-body);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: uppercase;
+}
+
+.slash-bar-text {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: #ffffff;
+  text-shadow: 0 0 10px rgba(255, 34, 0, 0.4);
+}
+
+@media (max-width: 768px) {
+  .slash-sigil svg {
+    width: 240px;
+    height: 240px;
+  }
+}
+
