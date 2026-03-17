@@ -27,6 +27,7 @@ export default function Hero() {
     const ringPos = { x: revealX, y: revealY };
     const revealRadius = { r: 0 };
     let isHovering = false;
+    let closeDelay = null;
 
     // Breathing pulse on the foggy ring
     const ringPulse = gsap.to(ring, {
@@ -43,10 +44,31 @@ export default function Hero() {
       const rect = section.getBoundingClientRect();
       revealX = e.clientX - rect.left;
       revealY = e.clientY - rect.top;
+
+      // Keep the reveal "wet" for a few seconds after movement
+      if (closeDelay) closeDelay.kill();
+      closeDelay = gsap.delayedCall(2.2, () => {
+        if (!isHovering) return;
+        gsap.to(revealRadius, {
+          r: 0,
+          duration: 2.4,
+          ease: 'power3.inOut',
+          overwrite: 'auto',
+        });
+        gsap.to(ring, {
+          opacity: 0,
+          scale: 0.85,
+          duration: 1.2,
+          ease: 'power2.inOut',
+          overwrite: 'auto',
+        });
+        ringPulse.pause();
+      });
     };
 
     const handleMouseEnter = () => {
       isHovering = true;
+      if (closeDelay) closeDelay.kill();
       gsap.to(revealRadius, {
         r: 150,
         duration: 0.5,
@@ -64,21 +86,26 @@ export default function Hero() {
     };
 
     const handleMouseLeave = () => {
-      isHovering = false;
-      gsap.to(revealRadius, {
-        r: 0,
-        duration: 0.8,
-        ease: 'power3.inOut',
-        overwrite: 'auto',
+      // Do NOT snap shut — let it linger, then close smoothly
+      isHovering = true;
+      if (closeDelay) closeDelay.kill();
+      closeDelay = gsap.delayedCall(2.6, () => {
+        isHovering = false;
+        gsap.to(revealRadius, {
+          r: 0,
+          duration: 2.6,
+          ease: 'power3.inOut',
+          overwrite: 'auto',
+        });
+        gsap.to(ring, {
+          opacity: 0,
+          scale: 0.85,
+          duration: 1.4,
+          ease: 'power2.inOut',
+          overwrite: 'auto',
+        });
+        ringPulse.pause();
       });
-      gsap.to(ring, {
-        opacity: 0,
-        scale: 0.85,
-        duration: 0.5,
-        ease: 'power2.in',
-        overwrite: 'auto',
-      });
-      ringPulse.pause();
     };
 
     let time = 0;
@@ -125,6 +152,7 @@ export default function Hero() {
       section.removeEventListener('mouseenter', handleMouseEnter);
       section.removeEventListener('mouseleave', handleMouseLeave);
       ringPulse.kill();
+      if (closeDelay) closeDelay.kill();
     };
   }, []);
 

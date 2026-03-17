@@ -6,46 +6,45 @@ export default function CustomCursor() {
 
   useEffect(() => {
     const cursor = cursorRef.current;
+    if (!cursor) return;
     
     // Initial setup hidden outside view
     gsap.set(cursor, { xPercent: -50, yPercent: -50, x: -100, y: -100, opacity: 0 });
 
-    // QuickSetter for smooth, bouncy performance
+    // QuickSetter for ultra‑low‑latency movement
     const setX = gsap.quickSetter(cursor, "x", "px");
     const setY = gsap.quickSetter(cursor, "y", "px");
 
-    // Spring interpolation values
-    const pos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-    const mouse = { x: pos.x, y: pos.y };
-    let speed = 0.18; // Bounce speed
+    let inHero = false;
 
     const onMouseMove = (e) => {
-      mouse.x = e.clientX;
-      mouse.y = e.clientY;
+      setX(e.clientX);
+      setY(e.clientY);
       
       // Reveal the cursor on first movement
-      if (cursor.style.opacity === "0") {
+      if (!inHero && cursor.style.opacity === "0") {
         gsap.to(cursor, { opacity: 1, duration: 0.3 });
       }
     };
 
-    window.addEventListener("mousemove", onMouseMove);
+    const hero = document.getElementById('character');
+    const onHeroEnter = () => {
+      inHero = true;
+      gsap.to(cursor, { opacity: 0, scale: 0, duration: 0.2, overwrite: 'auto' });
+    };
+    const onHeroLeave = () => {
+      inHero = false;
+      gsap.to(cursor, { opacity: 1, scale: 1, duration: 0.25, overwrite: 'auto' });
+    };
 
-    // Animation ticker loop for spring physics
-    gsap.ticker.add(() => {
-      // Interpolate position
-      const dt = 1.0 - Math.pow(1.0 - speed, gsap.ticker.deltaRatio());
-      
-      pos.x += (mouse.x - pos.x) * dt;
-      pos.y += (mouse.y - pos.y) * dt;
-      
-      setX(pos.x);
-      setY(pos.y);
-    });
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
+    hero?.addEventListener('mouseenter', onHeroEnter);
+    hero?.addEventListener('mouseleave', onHeroLeave);
 
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
-      gsap.ticker.remove();
+      hero?.removeEventListener('mouseenter', onHeroEnter);
+      hero?.removeEventListener('mouseleave', onHeroLeave);
     };
   }, []);
 
@@ -73,12 +72,6 @@ export default function CustomCursor() {
           transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* Hide the global cursor when hovering over the character hero section */
-        body:has(#character:hover) .global-custom-cursor {
-          opacity: 0 !important;
-          transform: scale(0);
-        }
-        
         /* Interactive scaling on links/buttons */
         a:hover ~ .global-custom-cursor,
         button:hover ~ .global-custom-cursor {

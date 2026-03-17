@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import gsap from 'gsap';
 import logo from '../assets/logo.jpg';
+import bgMusic from '../assets/music/music.mp3';
 
 const NAV_LINKS = [
   { label: 'Character', href: '#character' },
@@ -9,6 +10,7 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   // Refs for GSAP targets
   const topLineRef = useRef(null);
@@ -21,6 +23,12 @@ export default function Navbar() {
   const veilRef = useRef(null);
   const radialGlowRef = useRef(null);
   const backdropRef = useRef(null);
+  const audioRef = useRef(null);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    audioRef.current.volume = 0.35;
+  }, []);
 
   // GSAP timeline refs
   const menuTlRef = useRef(null);
@@ -60,12 +68,12 @@ export default function Navbar() {
     // ── Static cursed energy glow (optimized) ──
     // Instead of animating heavy box-shadows continuously via JS (which kills performance),
     // we use a static rich glow on the panel.
-    
+
     // Mock the glowTlRef so the rest of the code doesn't break
     glowTlRef.current = {
-      play: () => {},
-      pause: () => {},
-      kill: () => {},
+      play: () => { },
+      pause: () => { },
+      kill: () => { },
     };
 
     // Cleanup
@@ -299,6 +307,25 @@ export default function Navbar() {
     setIsOpen(false);
   };
 
+  // ── Audio toggle handler ──
+  const handleAudioToggle = async () => {
+    try {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      if (audio.paused) {
+        await audio.play();
+        setIsPlaying(true);
+      } else {
+        audio.pause();
+        setIsPlaying(false);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Audio playback error', err);
+    }
+  };
+
   return (
     <>
       {/* ═══ NAVBAR ═══ */}
@@ -312,7 +339,7 @@ export default function Navbar() {
         }}
       >
         {/* Logo */}
-        <a href="#" className="flex items-center z-[110]">
+        <a href="#" className="flex items-center z-110">
           <img
             src={logo}
             alt="Sukuna Logo"
@@ -323,17 +350,138 @@ export default function Navbar() {
           />
         </a>
 
-        {/* Hamburger Button */}
-        <button
-          id="hamburger-btn"
-          className="hamburger-btn relative z-[110] flex flex-col items-center justify-center gap-[6px] w-12 h-12 bg-transparent border-none cursor-pointer outline-none"
-          onClick={toggleMenu}
-          aria-label="Toggle navigation menu"
-        >
-          <span ref={topLineRef} className="hamburger-line" />
-          <span ref={midLineRef} className="hamburger-line" />
-          <span ref={botLineRef} className="hamburger-line" />
-        </button>
+        {/* Right controls: Audio toggle + Hamburger */}
+        <div className="flex items-center gap-3 z-110">
+          {/* Persistent audio element (prevents pauses during section swaps) */}
+          <audio ref={audioRef} src={bgMusic} loop preload="auto" />
+
+          {/* Premium audio button */}
+          <button
+            type="button"
+            onClick={handleAudioToggle}
+            aria-label={isPlaying ? 'Pause background music' : 'Play background music'}
+            className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(12,6,6,0.85)]/90 shadow-[0_0_20px_rgba(255,34,0,0.25)] outline-none cursor-pointer overflow-hidden"
+            style={{
+              backdropFilter: 'blur(10px) saturate(1.4)',
+              WebkitBackdropFilter: 'blur(10px) saturate(1.4)',
+            }}
+          >
+            <span
+              className="absolute inset-0 opacity-60 group-hover:opacity-90 transition-opacity duration-300"
+              style={{
+                background:
+                  'conic-gradient(from 210deg, rgba(255,60,0,0.7), rgba(255,255,255,0.1), rgba(255,40,0,0.9), rgba(80,10,0,0.9))',
+                mixBlendMode: 'screen',
+              }}
+            />
+            <span className="absolute inset-[2px] rounded-full bg-[rgba(4,0,0,0.9)]" />
+
+            {/* Icon */}
+            <span className="relative flex items-center justify-center text-xs text-white">
+              {isPlaying ? (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="drop-shadow-[0_0_8px_rgba(255,80,40,0.7)]"
+                >
+                  <path
+                    d="M6.5 5.25C5.67 5.25 5 5.92 5 6.75v10.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V6.75c0-.83-.67-1.5-1.5-1.5Zm11 0c-.83 0-1.5.67-1.5 1.5v10.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5V6.75c0-.83-.67-1.5-1.5-1.5Z"
+                    fill="#ffffff"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="drop-shadow-[0_0_8px_rgba(255,80,40,0.7)]"
+                >
+                  <path
+                    d="M5 9.75c0-.69.56-1.25 1.25-1.25h1.086a1.5 1.5 0 0 0 1.06-.44L10.94 5.46A1.5 1.5 0 0 1 12 5h.75A2.25 2.25 0 0 1 15 7.25v9.5A2.25 2.25 0 0 1 12.75 19H12a1.5 1.5 0 0 1-1.06-.44l-2.544-2.54a1.5 1.5 0 0 0-1.06-.44H6.25A1.25 1.25 0 0 1 5 14.25v-4.5Z"
+                    fill="#ffffff"
+                  />
+                  <path
+                    d="M17.5 8.5c.94.94 1.5 2.23 1.5 3.5s-.56 2.56-1.5 3.5"
+                    stroke="#ff5522"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M19.5 6.5c1.6 1.6 2.5 3.73 2.5 5.5s-.9 3.9-2.5 5.5"
+                    stroke="#ff9970"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
+            </span>
+
+            {/* Subtle pulse ring when playing */}
+            <span
+              className={`absolute inset-0 rounded-full border border-[rgba(255,120,60,0.0)] ${isPlaying ? 'animate-ping-slow border-[rgba(255,80,40,0.55)]' : ''
+                }`}
+            />
+          </button>
+
+          {/* YouTube button (tooltip on hover) */}
+          <a
+            href="https://youtu.be/48vj_nwUtss?si=V3rYbAWn-8gMYFgS"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Watch full fight on YouTube"
+            className="group relative flex items-center justify-center w-11 h-11 rounded-full border border-[rgba(255,255,255,0.14)] bg-[rgba(12,6,6,0.85)]/90 shadow-[0_0_22px_rgba(255,34,0,0.22)] outline-none cursor-pointer overflow-hidden"
+            style={{
+              backdropFilter: 'blur(10px) saturate(1.4)',
+              WebkitBackdropFilter: 'blur(10px) saturate(1.4)',
+            }}
+          >
+            <span
+              className="absolute inset-0 opacity-60 group-hover:opacity-90 transition-opacity duration-300"
+              style={{
+                background:
+                  'conic-gradient(from 220deg, rgba(255,30,0,0.85), rgba(255,255,255,0.08), rgba(255,30,0,0.9), rgba(60,0,0,0.95))',
+                mixBlendMode: 'screen',
+              }}
+            />
+            <span className="absolute inset-[2px] rounded-full bg-[rgba(4,0,0,0.9)]" />
+
+            {/* YT icon */}
+            <span className="relative">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M21.6 7.2a3 3 0 0 0-2.12-2.12C17.76 4.5 12 4.5 12 4.5s-5.76 0-7.48.58A3 3 0 0 0 2.4 7.2 31.6 31.6 0 0 0 2 12a31.6 31.6 0 0 0 .4 4.8 3 3 0 0 0 2.12 2.12c1.72.58 7.48.58 7.48.58s5.76 0 7.48-.58a3 3 0 0 0 2.12-2.12A31.6 31.6 0 0 0 22 12a31.6 31.6 0 0 0-.4-4.8Z"
+                  fill="rgba(255,30,0,0.95)"
+                />
+                <path d="M10 15.5v-7l6 3.5-6 3.5Z" fill="#fff" />
+              </svg>
+            </span>
+
+            {/* Tooltip */}
+            <span
+              className="pointer-events-none absolute top-full mt-2 px-3 py-1 rounded-full border border-[rgba(255,120,70,0.35)] bg-[rgba(0,0,0,0.88)] text-[9px] tracking-[0.32em] uppercase text-[rgba(255,240,235,0.92)] opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 whitespace-nowrap"
+              style={{
+                boxShadow: '0 10px 30px rgba(0,0,0,0.6), 0 0 18px rgba(255,60,20,0.22)',
+              }}
+            >
+              Watch full fight
+            </span>
+          </a>
+
+          {/* Hamburger Button */}
+          <button
+            id="hamburger-btn"
+            className="hamburger-btn relative flex flex-col items-center justify-center gap-[6px] w-12 h-12 bg-transparent border-none cursor-pointer outline-none"
+            onClick={toggleMenu}
+            aria-label="Toggle navigation menu"
+          >
+            <span ref={topLineRef} className="hamburger-line" />
+            <span ref={midLineRef} className="hamburger-line" />
+            <span ref={botLineRef} className="hamburger-line" />
+          </button>
+        </div>
       </nav>
 
       {/* ═══ DARK VEIL ═══ */}

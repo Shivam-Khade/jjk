@@ -37,6 +37,7 @@ export default function ConvoSection({ onComplete }) {
   const instructionRef = useRef(null);
   const pctRef = useRef(null);
   const uiRef = useRef(null);
+  const darkenRef = useRef(null);
   const glowLeftRef = useRef(null);
   const glowRightRef = useRef(null);
   const eyeLRef = useRef(null);
@@ -47,6 +48,8 @@ export default function ConvoSection({ onComplete }) {
   // Direct mutable state — no React re-renders during animation
   const charging = useRef(false);
   const progress = useRef(0);
+  const visualProgress = useRef(0); // smoothed progress for nicer visuals
+  const dialogueAlpha = useRef(1); // smoothed dialogue visibility
   const done = useRef(false);
   const wasDraining = useRef(false);
   const drainLine = useRef('');
@@ -88,6 +91,7 @@ export default function ConvoSection({ onComplete }) {
     const barEl = progressBarRef.current;
     const instrEl = instructionRef.current;
     const pctEl = pctRef.current;
+    const darkEl = darkenRef.current;
     const glowL = glowLeftRef.current;
     const glowR = glowRightRef.current;
     const eyeL = eyeLRef.current;
@@ -123,57 +127,76 @@ export default function ConvoSection({ onComplete }) {
 
       progress.current = p;
 
+      // ── Visual smoothing (prevents "steppy" feel) ──
+      const vp = visualProgress.current + (p - visualProgress.current) * 0.14;
+      visualProgress.current = vp;
+      const i = vp / 100;
+
       // ── Progress bar (direct width) ──
-      if (barEl) barEl.style.width = `${p}%`;
-      if (pctEl) pctEl.textContent = `${Math.floor(p)}%`;
+      if (barEl) barEl.style.width = `${vp}%`;
+      if (pctEl) pctEl.textContent = `${Math.floor(vp)}%`;
 
       // ── Instruction text ──
       if (instrEl && !isDone) {
-        if (wasDraining.current && p > 0.5) {
+        if (wasDraining.current && vp > 0.5) {
           instrEl.textContent = drainLine.current;
           instrEl.style.color = '#ff4444';
         } else if (isCharging) {
-          const line = CHARGE_LINES.find(l => p <= l.max) || CHARGE_LINES[CHARGE_LINES.length - 1];
+          const line = CHARGE_LINES.find(l => vp <= l.max) || CHARGE_LINES[CHARGE_LINES.length - 1];
           instrEl.textContent = line.text;
           instrEl.style.color = '#fff';
-        } else if (p < 0.5) {
+        } else if (vp < 0.5) {
           instrEl.textContent = 'HOLD SPACE — FOCUS CURSED ENERGY';
           instrEl.style.color = '#fff';
         }
       }
 
-      // ── Character & Dialogue Opacity (Fades out completely as energy peaks) ──
+      // ── Dialogue visibility (Space press should smoothly hide dialogues) ──
       const cards = sectionRef.current?.querySelectorAll('.q-card');
       if (!isDone) {
-        const i = p / 100;
-        
-        if (imgEl) {
-          imgEl.style.filter = `brightness(${1 - i * 0.9}) contrast(${1 + i * 0.5}) saturate(${1 + i * 1.5})`;
-          imgEl.style.transform = `scale(${1 + i * 0.06})`;
-          imgEl.style.opacity = 1 - i;
-        }
-        
+        const dialogueTarget = isCharging ? 0 : 1;
+        const da = dialogueAlpha.current + (dialogueTarget - dialogueAlpha.current) * 0.18;
+        dialogueAlpha.current = da;
+
         if (cards) {
-          cards.forEach(card => {
-            card.style.opacity = 1 - i;
-          });
+          const base = 1 - i; // as energy peaks, dialogues fade anyway
+          const opacity = Math.max(0, Math.min(1, base * da));
+          cards.forEach(card => { card.style.opacity = opacity; });
         }
+      }
+
+      // ── Concentration darkening (progressively darker while charging) ──
+      if (darkEl && !isDone) {
+        // Slightly darker only while actively charging, plus progress-based dim
+        const extra = isCharging ? 0.18 : 0;
+        darkEl.style.opacity = Math.max(0, Math.min(0.92, i * 0.88 + extra));
+      }
+
+      // ── Character (stay visible, but darken/contrast; do NOT fade away) ──
+      if (imgEl && !isDone) {
+        imgEl.style.filter = `brightness(${1 - i * 0.92}) contrast(${1 + i * 0.55}) saturate(${1 - i * 0.25})`;
+        imgEl.style.transform = `scale(${1 + i * 0.035})`;
+        imgEl.style.opacity = 1;
       }
 
       // ── Glow intensity (Extremely subtle) ──
-      const gi = Math.min(1, p / 70); 
-      if (glowL) glowL.style.opacity = gi * 0.08; 
-      if (glowR) glowR.style.opacity = gi * 0.08; 
+      // Keep side glows nearly invisible (user wants "only eyes glow")
+      const gi = Math.min(1, vp / 90);
+      const sideGlowOpacity = gi * (isCharging ? 0.02 : 0.01);
+      if (glowL) glowL.style.opacity = sideGlowOpacity;
+      if (glowR) glowR.style.opacity = sideGlowOpacity;
 
       // ── Eye glows (Stay visible even as character fades) ──
-      const ei = Math.min(1, p / 55);
+      const ei = Math.min(1, vp / 55);
       if (eyeL) {
-        eyeL.style.background = `radial-gradient(circle, rgba(255,20,0,${ei * 1.1}) 0%, rgba(200,0,0,${ei * 0.5}) 25%, transparent 65%)`;
-        eyeL.style.transform = `scale(${1 + ei * 0.5})`;
+        const boost = isCharging ? 1.25 : 1;
+        eyeL.style.background = `radial-gradient(circle, rgba(255,20,0,${ei * 1.25 * boost}) 0%, rgba(200,0,0,${ei * 0.55 * boost}) 26%, transparent 66%)`;
+        eyeL.style.transform = `scale(${1 + ei * 0.62})`;
       }
       if (eyeR) {
-        eyeR.style.background = `radial-gradient(circle, rgba(0,180,255,${ei * 1.1}) 0%, rgba(0,100,255,${ei * 0.5}) 25%, transparent 65%)`;
-        eyeR.style.transform = `scale(${1 + ei * 0.5})`;
+        const boost = isCharging ? 1.25 : 1;
+        eyeR.style.background = `radial-gradient(circle, rgba(0,180,255,${ei * 1.25 * boost}) 0%, rgba(0,100,255,${ei * 0.55 * boost}) 26%, transparent 66%)`;
+        eyeR.style.transform = `scale(${1 + ei * 0.62})`;
       }
     };
 
@@ -225,8 +248,6 @@ export default function ConvoSection({ onComplete }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&display=swap');
-
         .quotes-section {
           position: relative;
           width: 100%;
@@ -325,22 +346,26 @@ export default function ConvoSection({ onComplete }) {
 
         /* ── PROGRESS BAR (Refined Blood Tube) ── */
         .progress-track {
-          width: 440px;
-          height: 12px;
-          background: rgba(0,0,0,0.9);
-          border-radius: 20px;
+          width: min(520px, 86vw);
+          height: 14px;
+          background: rgba(255,255,255,0.04);
+          border-radius: 999px;
           overflow: hidden;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid rgba(255,255,255,0.10);
           box-shadow: 
-            inset 0 2px 10px rgba(0,0,0,0.9),
-            0 0 15px rgba(255,0,0,0.05);
+            inset 0 0 0 1px rgba(0,0,0,0.35),
+            inset 0 8px 20px rgba(0,0,0,0.7),
+            0 16px 50px rgba(0,0,0,0.55);
           position: relative;
+          backdrop-filter: blur(10px) saturate(1.2);
+          -webkit-backdrop-filter: blur(10px) saturate(1.2);
         }
         .progress-track::before {
           content: '';
           position: absolute;
-          inset: 0;
-          background: linear-gradient(to bottom, rgba(255,255,255,0.1), transparent 50%, rgba(255,255,255,0.05));
+          inset: 1px;
+          border-radius: 999px;
+          background: linear-gradient(to bottom, rgba(255,255,255,0.16), rgba(255,255,255,0.02) 45%, rgba(0,0,0,0.25));
           z-index: 2;
           pointer-events: none;
         }
@@ -348,43 +373,61 @@ export default function ConvoSection({ onComplete }) {
         .progress-fill {
           height: 100%;
           width: 0%;
-          border-radius: 20px;
-          background: linear-gradient(90deg, #440000, #b30000, #ff0000, #ff4d4d, #b30000);
-          background-size: 200% 100%;
-          animation: blood-flow 1s linear infinite;
-          box-shadow: 0 0 25px rgba(255, 0, 0, 0.4);
+          border-radius: 999px;
+          background: linear-gradient(90deg, rgba(60,0,0,0.95), rgba(190,0,0,0.98), rgba(255,30,0,1), rgba(255,110,80,0.98));
+          box-shadow:
+            0 0 26px rgba(255, 20, 0, 0.28),
+            0 0 60px rgba(255, 20, 0, 0.12);
           transition: none;
           position: relative;
           overflow: hidden;
         }
         
-        /* Leading edge spark */
+        /* Highlight sweep */
+        .progress-fill::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.22) 22%, transparent 48%);
+          transform: translateX(-70%);
+          animation: energy-sweep 1.15s ease-in-out infinite;
+          z-index: 3;
+        }
+
+        /* Leading edge flare */
         .progress-fill::after {
           content: '';
           position: absolute;
-          top: 0; bottom: 0; right: 0;
-          width: 30px;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6));
+          top: -6px;
+          bottom: -6px;
+          right: -10px;
+          width: 26px;
+          background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.75) 0%, rgba(255,90,50,0.25) 35%, transparent 70%);
           filter: blur(4px);
-          z-index: 3;
+          opacity: 0.9;
+          z-index: 4;
+          pointer-events: none;
         }
 
         .blood-texture {
           position: absolute;
           inset: 0;
           background-image: 
-            radial-gradient(circle at 20% 50%, rgba(0,0,0,0.4) 0%, transparent 20%),
-            radial-gradient(circle at 50% 30%, rgba(0,0,0,0.4) 0%, transparent 15%),
-            radial-gradient(circle at 80% 60%, rgba(0,0,0,0.4) 0%, transparent 20%);
-          background-size: 60px 100%;
-          animation: liquid-pan 2s linear infinite;
-          opacity: 0.6;
-          mix-blend-mode: multiply;
+            radial-gradient(circle at 18% 55%, rgba(0,0,0,0.28) 0%, transparent 26%),
+            radial-gradient(circle at 45% 35%, rgba(0,0,0,0.26) 0%, transparent 22%),
+            radial-gradient(circle at 78% 65%, rgba(0,0,0,0.26) 0%, transparent 28%),
+            linear-gradient(90deg, rgba(255,255,255,0.08), transparent 18%, transparent 82%, rgba(255,255,255,0.06));
+          background-size: 80px 100%;
+          animation: liquid-pan 2.6s linear infinite;
+          opacity: 0.45;
+          mix-blend-mode: overlay;
         }
 
-        @keyframes blood-flow {
-          0% { background-position: 200% 0%; }
-          100% { background-position: 0% 0%; }
+        @keyframes energy-sweep {
+          0% { transform: translateX(-80%); opacity: 0.0; }
+          15% { opacity: 0.9; }
+          55% { opacity: 0.55; }
+          100% { transform: translateX(90%); opacity: 0.0; }
         }
         @keyframes liquid-pan {
           0% { background-position: 120px 0; }
@@ -393,15 +436,28 @@ export default function ConvoSection({ onComplete }) {
         .progress-pct {
           font-family: 'Syne', sans-serif;
           font-size: 11px;
-          font-weight: 600;
-          letter-spacing: 0.3em;
-          color: rgba(255,255,255,0.28);
+          font-weight: 700;
+          letter-spacing: 0.36em;
+          color: rgba(255,255,255,0.32);
           text-align: center;
         }
 
         .depth-fog {
           position: absolute; inset: 0; z-index: 18; pointer-events: none;
           background: radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.5) 0%, transparent 55%);
+        }
+
+        /* ── Concentration overlay (true darkening + vignette) ── */
+        .concentration-overlay {
+          position: absolute;
+          inset: 0;
+          z-index: 15;
+          pointer-events: none;
+          opacity: 0;
+          background:
+            radial-gradient(ellipse at 50% 35%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.85) 55%, rgba(0,0,0,0.98) 100%),
+            linear-gradient(to bottom, rgba(0,0,0,0.4), rgba(0,0,0,0.95));
+          transition: opacity 0.08s linear;
         }
       `}</style>
 
@@ -414,6 +470,9 @@ export default function ConvoSection({ onComplete }) {
         {/* Character */}
         <img ref={imageRef} src={characterSplitImg} alt="Sukuna vs Gojo"
           className="absolute inset-0 w-full h-full object-cover object-center z-10" />
+
+        {/* Concentration darken overlay (driven by Space + progress) */}
+        <div ref={darkenRef} className="concentration-overlay" />
 
         {/* Eye Glows */}
         <div className="absolute inset-0 z-12 mix-blend-screen pointer-events-none" style={{ opacity: 0.8 }}>

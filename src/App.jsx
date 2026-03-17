@@ -3,7 +3,6 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Loader from './components/Loader';
 import SukunaTimeline from './components/SukunaTimeline';
-import CustomCursor from './components/CustomCursor';
 import ConvoSection from './components/ConvoSection';
 import DomainSection from './components/DomainSection';
 
@@ -27,7 +26,6 @@ function App() {
 
   return (
     <>
-      <CustomCursor />
       {loading && <Loader onReveal={() => setAppVisible(true)} onComplete={() => setLoading(false)} />}
       
       <div 
