@@ -53,7 +53,7 @@ function App() {
             </div>
           ) : (
             <div id="domain-container" style={{ position: 'relative', zIndex: 10, background: '#000', marginTop: '-100vh' }}>
-              <DomainSection visible={domainVisible} />
+              <DomainSection key="domain-manifest" visible={domainVisible} />
             </div>
           )}
         </main>

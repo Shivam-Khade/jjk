@@ -271,7 +271,11 @@ export default function DomainSection({ visible }) {
         }
       `}</style>
 
-      <section ref={sectionRef} className="domain-section">
+      <section 
+        ref={sectionRef} 
+        className="domain-section"
+        style={{ height: init ? `${TOTAL * 25}px` : '100vh' }}
+      >
         <div ref={wrapperRef} className="domain-wrapper">
           <div className="domain-canvas-sticky">
             <canvas ref={canvasRef} className="domain-canvas" />
