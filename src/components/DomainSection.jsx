@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -13,13 +13,17 @@ const frameModules = import.meta.glob('../assets/domain/ezgif-frame-*.jpg', { ea
 // Sort by frame number to guarantee order
 const FRAMES = Object.entries(frameModules)
   .sort(([a], [b]) => {
-    const numA = parseInt(a.match(/(\d+)\.jpg/)?.[1] || '0');
-    const numB = parseInt(b.match(/(\d+)\.jpg/)?.[1] || '0');
-    return numA - numB;
+    // Robust extraction: get digits before .jpg
+    const extractNum = (str) => {
+      const match = str.match(/(\d+)\.jpg/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+    return extractNum(a) - extractNum(b);
   })
   .map(([, mod]) => mod.default || mod);
 
 const TOTAL = FRAMES.length;
+console.log(`[DomainSection] Found ${TOTAL} frames`);
 
 export default function DomainSection({ visible }) {
   const sectionRef = useRef(null);
@@ -28,11 +32,16 @@ export default function DomainSection({ visible }) {
   const titleRef = useRef(null);
   const imagesRef = useRef([]);
   const currentFrame = useRef(0);
+  const [init, setInit] = useState(false);
 
   /* ═══════════════════════════════════════════════════════════
      PRELOAD ALL FRAMES INTO IMAGE OBJECTS
      ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
+    if (!visible) return;
+    
+    console.log(`[DomainSection] Initializing with ${TOTAL} frames`);
+    
     const images = [];
     FRAMES.forEach((src, i) => {
       const img = new Image();
@@ -40,105 +49,128 @@ export default function DomainSection({ visible }) {
       images[i] = img;
     });
     imagesRef.current = images;
-  }, []);
+    setInit(true);
+  }, [visible]);
 
   /* ═══════════════════════════════════════════════════════════
-     FADE-IN WHEN VISIBLE (after convo completion)
+     FADE-IN & LAYOUT SYNC
      ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
-    if (!visible || !wrapperRef.current || !sectionRef.current) return;
+    if (!visible || !init || !sectionRef.current) return;
 
-    if (sectionRef.current) {
-      // Snap scroll position to the very top of this section flawlessly while the screen is black
-      window.scrollTo({
-        top: window.scrollY + sectionRef.current.getBoundingClientRect().top,
-        behavior: 'instant'
-      });
-      
-      sectionRef.current.style.height = `${TOTAL * 30}px`;
-      sectionRef.current.style.overflowAnchor = 'none'; // prevents browser from jumping scroll position
+    // Snap scroll position to the top of this section
+    const startScroll = window.scrollY + sectionRef.current.getBoundingClientRect().top;
+    window.scrollTo({
+      top: startScroll,
+      behavior: 'instant'
+    });
+    
+    // Set section height based on frame count
+    sectionRef.current.style.height = `${Math.max(window.innerHeight, TOTAL * 25)}px`;
+    sectionRef.current.style.overflowAnchor = 'none';
+    
+    // Refresh ScrollTrigger after a slight delay to ensure browser layout settle
+    setTimeout(() => {
       ScrollTrigger.refresh();
-    }
+    }, 100);
 
-    // Cinematic Title entrance (Staggered Characters)
+    // Cinematic Title entrance
     if (titleRef.current) {
       const chars = titleRef.current.querySelectorAll('.domain-char');
       const hint = titleRef.current.querySelector('.domain-scroll-hint');
       
-      gsap.set(titleRef.current, { opacity: 1 }); // ensure container is visible
-      
       gsap.fromTo(chars,
+        { y: 30, opacity: 0, scale: 0.8, filter: 'blur(10px)' },
         { 
-          y: 20, 
-          opacity: 0,
-          scale: 0.8,
-          filter: 'blur(10px)'
-        },
-        { 
-          y: 0, 
-          opacity: 1, 
-          scale: 1,
-          filter: 'blur(0px)',
-          duration: 1, 
-          stagger: 0.05, 
-          delay: 0.8, 
-          ease: 'expo.out' 
+          y: 0, opacity: 1, scale: 1, filter: 'blur(0px)',
+          duration: 1.2, stagger: 0.04, delay: 0.5, ease: 'expo.out' 
         }
       );
 
       gsap.fromTo(hint,
         { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 1, delay: 2, ease: 'power2.out' }
+        { opacity: 1, y: 0, duration: 1, delay: 1.8, ease: 'power2.out' }
       );
     }
-  }, [visible]);
+  }, [visible, init]);
 
   /* ═══════════════════════════════════════════════════════════
-     SCROLL-DRIVEN FRAME ANIMATION
+     CANVAS RENDERING LOGIC
      ═══════════════════════════════════════════════════════════ */
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !init) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    const handleResize = () => {
-      canvas.width = document.documentElement.clientWidth;
-      canvas.height = window.innerHeight;
-      renderFrame(currentFrame.current);
-    };
+    const ctx = canvas.getContext('2d', { alpha: false }); // performance optimization
 
     const renderFrame = (index) => {
       const img = imagesRef.current[index];
-      if (!img) return;
+      if (!img || img.naturalWidth === 0) return;
       
       const draw = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Stretch the frame to completely fill the canvas width and height
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        if (!canvas) return;
+        
+        // Logical centering & Cover logic
+        const cw = canvas.width;
+        const ch = canvas.height;
+        const iw = img.naturalWidth;
+        const ih = img.naturalHeight;
+        
+        const canvasRatio = cw / ch;
+        const imgRatio = iw / ih;
+        
+        let dx, dy, dw, dh;
+        
+        // "Cover" behavior while keeping it centered
+        if (imgRatio > canvasRatio) {
+          // Image is wider than canvas ratio
+          dh = ch;
+          dw = ch * imgRatio;
+          dx = (cw - dw) / 2;
+          dy = 0;
+        } else {
+          // Image is taller than canvas ratio
+          dw = cw;
+          dh = cw / imgRatio;
+          dx = 0;
+          dy = (ch - dh) / 2;
+        }
+
+        ctx.clearRect(0, 0, cw, ch);
+        ctx.drawImage(img, dx, dy, dw, dh);
       };
 
       if (img.complete) {
         draw();
       } else {
-        img.addEventListener('load', draw, { once: true });
+        img.onload = draw;
       }
     };
 
+    const handleResize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      
+      renderFrame(currentFrame.current);
+    };
+
+    // Initial setup
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    // Draw first frame immediately
-    renderFrame(0);
-
+    // Sequence ScrollTrigger
     const st = ScrollTrigger.create({
       trigger: sectionRef.current,
       start: 'top top',
       end: 'bottom bottom',
-      scrub: 0.5,
+      scrub: true,
       onUpdate: (self) => {
-        const frameIndex = Math.min(TOTAL - 1, Math.floor(self.progress * TOTAL));
+        const frameIndex = Math.min(TOTAL - 1, Math.floor(self.progress * (TOTAL - 1)));
         if (frameIndex !== currentFrame.current) {
           currentFrame.current = frameIndex;
           renderFrame(frameIndex);
@@ -150,7 +182,7 @@ export default function DomainSection({ visible }) {
       window.removeEventListener('resize', handleResize);
       st.kill();
     };
-  }, [visible]);
+  }, [visible, init]);
 
   if (!visible) return null;
 
@@ -160,30 +192,36 @@ export default function DomainSection({ visible }) {
         .domain-section {
           position: relative;
           background: #000;
+          width: 100%;
+          min-height: 100vh;
         }
 
         .domain-wrapper {
-          opacity: 1;
-          height: 100%;
+          position: relative;
           width: 100%;
+          height: 100%;
         }
 
         .domain-canvas-sticky {
           position: sticky;
           top: 0;
+          left: 0;
           width: 100%;
           height: 100vh;
           z-index: 1;
+          background: #000;
+          overflow: hidden;
         }
 
         .domain-canvas {
           display: block;
           width: 100%;
           height: 100%;
+          object-fit: cover;
         }
 
-        /* Dark overlay on the frames */
-        .domain-overlay {
+        /* Overlays */
+        .domain-ui-layer {
           position: sticky;
           top: 0;
           left: 0;
@@ -191,96 +229,69 @@ export default function DomainSection({ visible }) {
           height: 100vh;
           margin-top: -100vh;
           pointer-events: none;
-          z-index: 2;
-          background: linear-gradient(
-            to bottom,
-            rgba(0,0,0,0.2) 0%,
-            rgba(0,0,0,0.0) 30%,
-            rgba(0,0,0,0.0) 70%,
-            rgba(0,0,0,0.3) 100%
-          );
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
         }
 
-        /* Vignette */
-        .domain-vignette {
-          position: sticky;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100vh;
-          margin-top: -100vh;
-          pointer-events: none;
-          z-index: 3;
-          background: radial-gradient(
-            ellipse at 50% 50%,
-            transparent 50%,
-            rgba(0,0,0,0.3) 85%,
-            rgba(0,0,0,0.6) 100%
-          );
+        .domain-grad-overlay {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.8) 100%);
+          z-index: -1;
         }
 
-        /* Title */
         .domain-title {
-          position: sticky;
-          top: 50%;
-          left: 0;
-          width: 100%;
-          margin-top: -100vh;
-          transform: translateY(-50%);
-          z-index: 5;
-          pointer-events: none;
-          text-align: center;
           font-family: 'Syne', sans-serif;
           font-weight: 800;
-          font-size: clamp(2rem, 5vw, 4.5rem);
+          font-size: clamp(2.5rem, 8vw, 6rem);
           text-transform: uppercase;
-          letter-spacing: 0.2em;
+          letter-spacing: 0.15em;
           color: #fff;
-          text-shadow:
-            0 0 30px rgba(255,34,0,0.5),
-            0 0 80px rgba(255,34,0,0.2),
-            0 0 120px rgba(0,100,255,0.15);
-          opacity: 0;
+          text-align: center;
+          text-shadow: 
+            0 0 20px rgba(255, 34, 0, 0.6),
+            0 0 50px rgba(255, 34, 0, 0.3);
+          line-height: 1.1;
         }
 
-        /* Scroll Hint */
         .domain-scroll-hint {
           display: block;
-          margin-top: 15px;
+          margin-top: 2rem;
           font-family: 'Syne', sans-serif;
-          font-weight: 600;
-          font-size: 14px;
-          letter-spacing: 0.3em;
-          color: rgba(255,255,255,0.6);
-          animation: pulse-hint 1.5s infinite alternate;
+          font-size: 11px;
+          letter-spacing: 0.5em;
+          color: rgba(255,255,255,0.4);
+          animation: domain-pulse 1.5s infinite alternate;
         }
-        @keyframes pulse-hint {
-          0% { opacity: 0.3; transform: translateY(0); }
-          100% { opacity: 1; transform: translateY(4px); }
+
+        @keyframes domain-pulse {
+          from { opacity: 0.3; transform: translateY(0); }
+          to { opacity: 0.8; transform: translateY(5px); }
         }
       `}</style>
 
       <section ref={sectionRef} className="domain-section">
         <div ref={wrapperRef} className="domain-wrapper">
-          {/* Sticky canvas for frame playback */}
+          {/* Sticky Canvas Container */}
           <div className="domain-canvas-sticky">
             <canvas ref={canvasRef} className="domain-canvas" />
           </div>
 
-          {/* Dark overlay */}
-          <div className="domain-overlay" />
-
-          {/* Vignette */}
-          <div className="domain-vignette" />
-
-          {/* Title with staggered character animation */}
-          <div ref={titleRef} className="domain-title">
-            {"DOMAIN EXPANSION".split("").map((char, i) => (
-              <span key={i} className="domain-char" style={{ display: 'inline-block', whiteSpace: char === ' ' ? 'pre' : 'normal' }}>
-                {char}
-              </span>
-            ))}
-            <span className="domain-scroll-hint">SCROLL TO EXPAND ▾</span>
+          {/* UI Layer (Sticky via margin-top hack or just absolute in a tall container) */}
+          <div className="domain-ui-layer">
+            <div className="domain-grad-overlay" />
+            
+            <div ref={titleRef} className="domain-title">
+              {"DOMAIN EXPANSION".split("").map((char, i) => (
+                <span key={i} className="domain-char" style={{ display: 'inline-block', whiteSpace: char === ' ' ? 'pre' : 'normal' }}>
+                  {char}
+                </span>
+              ))}
+              <span className="domain-scroll-hint">SCROLL TO MANIFEST ▾</span>
+            </div>
           </div>
         </div>
       </section>
