@@ -10,20 +10,21 @@ gsap.registerPlugin(ScrollTrigger);
    ═══════════════════════════════════════════════════════════ */
 const frameModules = import.meta.glob('../assets/domain/ezgif-frame-*.jpg', { eager: true });
 
-// Sort by frame number to guarantee order
+// Sort by frame number to guarantee order even with production naming/hashing
 const FRAMES = Object.entries(frameModules)
-  .sort(([a], [b]) => {
-    // Robust extraction: get digits before .jpg
+  .sort(([keyA], [keyB]) => {
+    // Vite glob keys are original paths: '../assets/domain/ezgif-frame-001.jpg'
     const extractNum = (str) => {
-      const match = str.match(/(\d+)\.jpg/);
-      return match ? parseInt(match[1], 10) : 0;
+      const parts = str.split('ezgif-frame-');
+      if (parts.length < 2) return 0;
+      const numPart = parts[1].split('.')[0]; 
+      return parseInt(numPart, 10) || 0;
     };
-    return extractNum(a) - extractNum(b);
+    return extractNum(keyA) - extractNum(keyB);
   })
   .map(([, mod]) => mod.default || mod);
 
 const TOTAL = FRAMES.length;
-console.log(`[DomainSection] Found ${TOTAL} frames`);
 
 export default function DomainSection({ visible }) {
   const sectionRef = useRef(null);
@@ -58,40 +59,44 @@ export default function DomainSection({ visible }) {
   useEffect(() => {
     if (!visible || !init || !sectionRef.current) return;
 
-    // Snap scroll position to the top of this section
-    const startScroll = window.scrollY + sectionRef.current.getBoundingClientRect().top;
-    window.scrollTo({
-      top: startScroll,
-      behavior: 'instant'
-    });
-    
-    // Set section height based on frame count
-    sectionRef.current.style.height = `${Math.max(window.innerHeight, TOTAL * 25)}px`;
-    sectionRef.current.style.overflowAnchor = 'none';
-    
-    // Refresh ScrollTrigger after a slight delay to ensure browser layout settle
-    setTimeout(() => {
-      ScrollTrigger.refresh();
-    }, 100);
-
-    // Cinematic Title entrance
-    if (titleRef.current) {
-      const chars = titleRef.current.querySelectorAll('.domain-char');
-      const hint = titleRef.current.querySelector('.domain-scroll-hint');
+    const ctx = gsap.context(() => {
+      // Snap scroll position to the top of this section
+      const startScroll = window.scrollY + sectionRef.current.getBoundingClientRect().top;
+      window.scrollTo({
+        top: startScroll,
+        behavior: 'instant'
+      });
       
-      gsap.fromTo(chars,
-        { y: 30, opacity: 0, scale: 0.8, filter: 'blur(10px)' },
-        { 
-          y: 0, opacity: 1, scale: 1, filter: 'blur(0px)',
-          duration: 1.2, stagger: 0.04, delay: 0.5, ease: 'expo.out' 
-        }
-      );
+      // Set section height based on frame count
+      sectionRef.current.style.height = `${Math.max(window.innerHeight, TOTAL * 25)}px`;
+      sectionRef.current.style.overflowAnchor = 'none';
+      
+      // Refresh ScrollTrigger after a slight delay to ensure browser layout settle
+      setTimeout(() => {
+        ScrollTrigger.refresh();
+      }, 150);
 
-      gsap.fromTo(hint,
-        { opacity: 0, y: 10 },
-        { opacity: 1, y: 0, duration: 1, delay: 1.8, ease: 'power2.out' }
-      );
-    }
+      // Cinematic Title entrance (Delayed to avoid overlap with previous section's text)
+      if (titleRef.current) {
+        const chars = titleRef.current.querySelectorAll('.domain-char');
+        const hint = titleRef.current.querySelector('.domain-scroll-hint');
+        
+        gsap.fromTo(chars,
+          { y: 30, opacity: 0, scale: 0.8, filter: 'blur(10px)' },
+          { 
+            y: 0, opacity: 1, scale: 1, filter: 'blur(0px)',
+            duration: 1.2, stagger: 0.04, delay: 0.7, ease: 'expo.out' 
+          }
+        );
+
+        gsap.fromTo(hint,
+          { opacity: 0, y: 10 },
+          { opacity: 1, y: 0, duration: 1, delay: 2, ease: 'power2.out' }
+        );
+      }
+    });
+
+    return () => ctx.revert();
   }, [visible, init]);
 
   /* ═══════════════════════════════════════════════════════════
@@ -102,7 +107,7 @@ export default function DomainSection({ visible }) {
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { alpha: false }); // performance optimization
+    const ctx = canvas.getContext('2d', { alpha: false });
 
     const renderFrame = (index) => {
       const img = imagesRef.current[index];
@@ -111,7 +116,6 @@ export default function DomainSection({ visible }) {
       const draw = () => {
         if (!canvas) return;
         
-        // Logical centering & Cover logic
         const cw = canvas.width;
         const ch = canvas.height;
         const iw = img.naturalWidth;
@@ -122,15 +126,12 @@ export default function DomainSection({ visible }) {
         
         let dx, dy, dw, dh;
         
-        // "Cover" behavior while keeping it centered
         if (imgRatio > canvasRatio) {
-          // Image is wider than canvas ratio
           dh = ch;
           dw = ch * imgRatio;
           dx = (cw - dw) / 2;
           dy = 0;
         } else {
-          // Image is taller than canvas ratio
           dw = cw;
           dh = cw / imgRatio;
           dx = 0;
@@ -152,18 +153,14 @@ export default function DomainSection({ visible }) {
       const dpr = window.devicePixelRatio || 1;
       canvas.width = window.innerWidth * dpr;
       canvas.height = window.innerHeight * dpr;
-      
       canvas.style.width = '100vw';
       canvas.style.height = '100vh';
-      
       renderFrame(currentFrame.current);
     };
 
-    // Initial setup
     handleResize();
     window.addEventListener('resize', handleResize);
 
-    // Sequence ScrollTrigger
     const st = ScrollTrigger.create({
       trigger: sectionRef.current,
       start: 'top top',
@@ -194,6 +191,8 @@ export default function DomainSection({ visible }) {
           background: #000;
           width: 100%;
           min-height: 100vh;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
         }
 
         .domain-wrapper {
@@ -220,7 +219,6 @@ export default function DomainSection({ visible }) {
           object-fit: cover;
         }
 
-        /* Overlays */
         .domain-ui-layer {
           position: sticky;
           top: 0;
@@ -275,15 +273,12 @@ export default function DomainSection({ visible }) {
 
       <section ref={sectionRef} className="domain-section">
         <div ref={wrapperRef} className="domain-wrapper">
-          {/* Sticky Canvas Container */}
           <div className="domain-canvas-sticky">
             <canvas ref={canvasRef} className="domain-canvas" />
           </div>
 
-          {/* UI Layer (Sticky via margin-top hack or just absolute in a tall container) */}
           <div className="domain-ui-layer">
             <div className="domain-grad-overlay" />
-            
             <div ref={titleRef} className="domain-title">
               {"DOMAIN EXPANSION".split("").map((char, i) => (
                 <span key={i} className="domain-char" style={{ display: 'inline-block', whiteSpace: char === ' ' ? 'pre' : 'normal' }}>
